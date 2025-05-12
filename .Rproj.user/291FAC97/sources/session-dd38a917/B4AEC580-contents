@@ -1,0 +1,89 @@
+---
+title: "XAI3"
+author: "CB_EF_PT"
+date: "2025-05-02"
+output:
+  html_document: default
+  word_document: default
+---
+
+##Exercise 1
+#Partial Dependence Plot
+
+```{r}
+# Load required libraries
+
+library(randomForest)
+library(pdp)
+library(ggplot2)
+
+# Load the dataset
+data <- read.csv("day.csv")
+
+# Preview the dataset
+head(data)
+```
+
+
+```{r}
+# Create a new feature: days since Jan 1, 2011
+data$days_since_2011 <- 365 * data$yr + data$mnth * 30 + data$weekday
+
+# Fit a Random Forest model to predict bike rentals (cnt)
+set.seed(123)
+rf_model <- randomForest(cnt ~ . - instant - dteday - casual - registered, 
+                         data = data, 
+                         ntree = 500, 
+                         importance = TRUE)
+
+# View feature importance
+print(importance(rf_model))
+```
+
+
+```{r}
+# Partial Dependence Plot for temperature
+pdp_temp <- partial(rf_model, pred.var = "temp", grid.resolution = 20)
+plot(pdp_temp, 
+     main = "Partial Dependence Plot - Temperature", 
+     xlab = "Normalized Temperature", 
+     ylab = "Predicted Bike Rentals")
+
+# Partial Dependence Plot for humidity
+pdp_hum <- partial(rf_model, pred.var = "hum", grid.resolution = 20)
+plot(pdp_hum, 
+     main = "Partial Dependence Plot - Humidity", 
+     xlab = "Humidity", 
+     ylab = "Predicted Bike Rentals")
+
+# Partial Dependence Plot for wind speed
+pdp_wind <- partial(rf_model, pred.var = "windspeed", grid.resolution = 20)
+plot(pdp_wind, 
+     main = "Partial Dependence Plot - Wind Speed", 
+     xlab = "Wind Speed", 
+     ylab = "Predicted Bike Rentals")
+
+# Partial Dependence Plot for days since 2011
+pdp_days <- partial(rf_model, pred.var = "days_since_2011", grid.resolution = 20)
+plot(pdp_days, 
+     main = "Partial Dependence Plot - Days Since 2011", 
+     xlab = "Days Since 2011", 
+     ylab = "Predicted Bike Rentals")
+
+```
+
+
+**Days Since 2011 (days_since_2011)**
+The partial dependence plot for days_since_2011 shows an upward trend in the predicted number of bike rentals as time progresses since the beginning of the dataset (starting in 2011). This suggests that the model has learned that rentals tend to increase steadily over time. Several external factors might explain this growth, such as urban expansion, improvements in cycling infrastructure, public campaigns promoting bike use, or behavioral shifts among users. The increase is not strictly linear but clearly upward, indicating a consistently positive influence of this variable on rental predictions.
+
+**Temperature (temp)**
+Temperature has a clearly positive effect on the predicted bike rental counts. The PDP shows that as temperature rises, the model predicts a higher number of rentals. This matches real-world behavior: people are more likely to bike when the weather is pleasant. However, this increase is not linear; the effect becomes stronger at moderate temperatures and then stabilizes or slightly declines at very high temperatures, likely because extreme heat may discourage cycling. Overall, the model has captured a nonlinear but strongly positive relationship between temperature and bike rentals.
+
+**Humidity (hum)**
+In the case of humidity, the effect on rental predictions is negative. The PDP indicates that as humidity increases, the number of predicted bike rentals decreases. This can be explained by the discomfort of riding in humid conditions, which are often associated with rain or poor weather—conditions that typically discourage bike use. While the negative effect is not as dramatic as with other variables, it is consistent. The model reduces its rental predictions on more humid days, reflecting a moderate negative influence of this variable.
+
+**Wind Speed (windspeed)**
+Wind speed also shows a negative relationship with bike rentals. The PDP reveals that as wind speed increases, the predicted rental counts decline. This makes practical sense, as strong winds can make cycling physically more difficult, especially for longer trips or for less experienced riders. Although the downward slope in the PDP is not extremely steep, it does show a steady decline, indicating that the model associates windier conditions with lower demand.
+
+**Conclusion**
+Together, these four variables have different effects on the model’s predictions. Temperature and days since 2011 show a clearly positive influence, reflecting the expected pattern of increasing bike usage over time and during comfortable weather. On the other hand, humidity and wind speed act as deterrents, lowering the model’s rental predictions when their values are high. These results demonstrate that the Random Forest model has successfully learned complex, nonlinear relationships that align well with real-world human behavior regarding bike usage.
