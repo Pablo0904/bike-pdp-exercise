@@ -87,3 +87,99 @@ Wind speed also shows a negative relationship with bike rentals. The PDP reveals
 
 **Conclusion**
 Together, these four variables have different effects on the model’s predictions. Temperature and days since 2011 show a clearly positive influence, reflecting the expected pattern of increasing bike usage over time and during comfortable weather. On the other hand, humidity and wind speed act as deterrents, lowering the model’s rental predictions when their values are high. These results demonstrate that the Random Forest model has successfully learned complex, nonlinear relationships that align well with real-world human behavior regarding bike usage.
+
+# Exercise 2
+
+```{r}
+# Cargar librerías necesarias
+library(randomForest)
+library(pdp)
+library(ggplot2)
+library(gridExtra)  # Para combinar plots si lo deseas
+
+# Crear una muestra aleatoria para evitar problemas de rendimiento
+set.seed(123)
+sample_data <- data[sample(nrow(data), 500), ]  # Puedes ajustar el tamaño
+
+# Ajustar el modelo Random Forest sobre la muestra
+rf_model_sample <- randomForest(cnt ~ . - instant - dteday - casual - registered,
+                                data = sample_data,
+                                ntree = 500,
+                                importance = TRUE)
+
+# Calcular la dependencia parcial bidimensional
+pdp_2d <- partial(rf_model_sample,
+                  pred.var = c("temp", "hum"),
+                  grid.resolution = 20,
+                  progress = "text")
+
+# Convertir a data frame para ggplot
+pdp_df <- as.data.frame(pdp_2d)
+
+# Graficar con geom_tile
+ggplot(pdp_df, aes(x = temp, y = hum, fill = yhat)) +
+  geom_tile(width = 0.02, height = 0.02) +
+  scale_fill_viridis_c(option = "C") +
+  labs(
+    title = "2D Partial Dependence Plot",
+    x = "Normalized Temperature",
+    y = "Humidity",
+    fill = "Predicted\nBike Rentals"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+# Densidad temperatura
+temp_density <- ggplot(sample_data, aes(x = temp)) +
+  geom_density(fill = "lightblue", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Density of Normalized Temperature")
+
+# Densidad humedad
+hum_density <- ggplot(sample_data, aes(x = hum)) +
+  geom_density(fill = "lightgreen", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Density of Humidity")
+
+# Mostrar ambos gráficos
+temp_density / hum_density
+
+```
+*Analysis of PDP*
+
+The 2D Partial Dependence Plot (PDP) illustrates the joint effect of normalized temperature (temp) and humidity (hum) on the predicted number of bike rentals.
+
+- Temperature effect:
+
+The model clearly predicts higher bike rental counts as temperature increases. This is visually represented by the shift from purple (lower predictions) to yellow (higher predictions) along the x-axis. Warmer days are more favorable for biking.
+
+- Humidity effect:
+
+Humidity has a negative correlation with predicted rentals. As humidity increases (y-axis), the expected bike rentals tend to decrease slightly, especially under moderate temperatures.
+
+- Interaction between features:
+
+The most favorable conditions for bike rentals are high temperatures with low humidity, located in the bottom-right corner of the plot. Conversely, low temperatures and high humidity correspond to the lowest rental predictions, in the top-left corner.
+
+- Conclusion:
+
+The Random Forest model has learned a realistic dependency: people are more likely to rent bikes when it's warm and dry, which aligns with practical human behavior.
+
+*Input feature distributions*
+
+- Temperature Distribution:
+
+The normalized temperature shows a bimodal pattern, with two peaks around values 0.35 and 0.7. This suggests that the dataset contains a mix of cool and warm days, but very few extreme cold or hot days.
+
+- Humidity Distribution:
+
+Humidity is skewed to the left, with most values concentrated between 0.4 and 0.7. Extremely dry or very humid days are rare in the dataset.
+
+- Conclusion:
+
+The regions with the highest prediction values in the PDP also correspond to densely populated regions of the data. This means that the model is learning from frequent, meaningful patterns, rather than extrapolating from rare conditions.
