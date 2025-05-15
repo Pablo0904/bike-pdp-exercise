@@ -183,3 +183,93 @@ Humidity is skewed to the left, with most values concentrated between 0.4 and 0.
 - Conclusion:
 
 The regions with the highest prediction values in the PDP also correspond to densely populated regions of the data. This means that the model is learning from frequent, meaningful patterns, rather than extrapolating from rare conditions.
+
+## Exercise 3
+
+```{r}
+# Load required libraries
+library(dplyr)
+
+# Load the dataset
+data <- read.csv("kc_house_data.csv")
+
+# Display the first few rows
+head(data)
+```
+
+```{r}
+# Select only the relevant features
+data_subset <- data %>%
+  select(price, bedrooms, bathrooms, sqft_living, sqft_lot, floors, yr_built)
+
+# Remove any rows with missing values
+data_subset <- na.omit(data_subset)
+
+# Create a random sample (to reduce computational load)
+set.seed(123)
+sample_data <- data_subset[sample(nrow(data_subset), 2000), ]
+```
+
+```{r}
+# Fit the Random Forest model
+rf_model <- randomForest(price ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors + yr_built,
+                         data = sample_data,
+                         ntree = 500,
+                         importance = TRUE)
+
+# Optional: View variable importance
+print(importance(rf_model))
+```
+
+```{r}
+# Function to plot PDP with ggplot2
+plot_pdp <- function(model, variable, label_x) {
+  pd <- partial(model, pred.var = variable, grid.resolution = 20)
+  pd_df <- as.data.frame(pd)
+  
+  ggplot(pd_df, aes_string(x = variable, y = "yhat")) +
+    geom_line(color = "black", size = 1) +                # Line connecting points
+    geom_point(color = "black", size = 2) +               # Black points (no border)
+    theme_minimal() +
+    labs(title = paste("Partial Dependence Plot -", variable),
+         x = label_x,
+         y = "Predicted Price") +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10)
+    )
+}
+
+# Plot PDPs for selected variables
+plot_pdp(rf_model, "bedrooms", "Number of Bedrooms")
+plot_pdp(rf_model, "bathrooms", "Number of Bathrooms")
+plot_pdp(rf_model, "sqft_living", "Square Feet Living Area")
+plot_pdp(rf_model, "floors", "Number of Floors")
+```
+## Overview and Methodology
+
+Understanding what drives the price of a house is crucial for real estate strategy, both from a business and a client-facing perspective. Using a Random Forest model trained on a representative sample from the kc_house_data.csv dataset, we applied Partial Dependence Plots (PDP) to interpret the global behavior of the model regarding four essential features: bedrooms, bathrooms, sqft_living, and floors. The aim is not only to understand how each variable influences price individually but also to gain actionable insights grounded in the behavior of the model itself.
+
+## Impact of sqft_living: Usable Space Drives Value
+
+The feature that clearly stood out was sqft_living. The relationship here is direct and intuitive: as the living area in square feet increases, the predicted price of the house grows almost exponentially. This behavior is reflected both in the steep slope of the PDP and in the model’s internal importance metrics, where sqft_living shows the highest increase in mean squared error (%IncMSE > 50%). The price curve rises continuously, confirming that this feature holds the greatest predictive power. From a business standpoint, this suggests that highlighting the spaciousness of a property—and even modest extensions—can significantly impact perceived value. The interpretability of this plot is especially strong due to its monotonicity, a desirable property discussed in interpretability theory that eases human understanding.
+
+## Impact of bathrooms: A Marker of Comfort and Luxury
+
+In contrast, bathrooms also exhibits a generally increasing trend, though with more complexity. For homes with 1 to 4 bathrooms, the effect on price is steady but moderate. However, after 4 bathrooms, the predicted price begins to rise more sharply. This indicates a non-linear effect: having additional bathrooms begins to act as a luxury signal rather than just a functional feature. This reinforces the idea of interaction effects mentioned in the interpretability materials—specifically, how the impact of a variable may change depending on the value range. bathrooms is ranked second in importance, suggesting that high-end buyers are willing to pay a premium for comfort and privacy that comes with additional full bathrooms.
+
+## Impact of floors: Architectural Layout and Price Steps
+
+The variable floors showed an interesting stepped pattern. The price increases in blocks—most notably from one to two floors and again from two to three—then plateaus beyond that. This suggests that the architectural type (e.g., single-floor vs. duplex vs. triplex) might serve as a proxy for perceived luxury or space distribution, rather than contributing value in a continuous way. While it’s not as influential as other features, the effect is consistent enough to consider it during marketing or design decisions. The plot’s clear stair-step structure reflects the categorical nature of the variable and aligns with the model’s internal logic.
+
+## Impact of bedrooms: A Misleading Indicator of Value
+
+Bedrooms, surprisingly, turned out to be the least informative feature of the four. The PDP shows a non-monotonic and somewhat erratic influence on predicted price. In particular, properties with 4 bedrooms seemed to correlate with a slight dip in predicted price compared to 3 or 5-bedroom homes. This counterintuitive effect might arise from confounding factors not captured directly in the model—for example, homes with many bedrooms but smaller living areas might signal outdated layouts or lack of renovation. This is a good illustration of what the course material refers to as the limits of observational interpretation: without considering other latent variables or interactions, the raw effect can be misleading. In terms of strategic takeaway, this tells us that simply increasing the number of bedrooms does not guarantee added value; instead, emphasis should be placed on space quality and design.
+
+## Model Interpretability and Practical Relevance
+
+By employing PDPs, which average predictions across all observations, we ensure a global interpretability of the model, giving stakeholders confidence in understanding how these variables drive price regardless of the specific case. This method offers a balance between fidelity and clarity, capturing meaningful relationships while remaining accessible to non-technical decision-makers.
+
+Their main advantage lies in their interpretability and intuitive visualization, making complex model behavior more accessible. However, PDPs assume feature independence and may be misleading in regions with low data density or high feature correlation. For instance, the erratic behavior of bedrooms could be due to hidden interactions not captured in the plot. In the future, combining PDPs with Individual Conditional Expectation (ICE) plots or analyzing interaction effects using H-statistics could provide deeper and more accurate insights.
+
